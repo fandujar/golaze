@@ -19,3 +19,6 @@
 
 # Go workspace file
 go.work
+
+# Avoid commit test binaries
+examples/web_app/web_app

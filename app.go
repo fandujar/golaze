@@ -15,6 +15,8 @@ import (
 type AppConfig struct {
 	LogLevel    *zerolog.Level
 	HealthCheck *HealthCheck
+	WebApp      *WebApp
+	Worker      *Worker
 }
 
 type App struct {
@@ -31,6 +33,10 @@ func NewApp(config *AppConfig) *App {
 		config.HealthCheck = NewHealthCheck(
 			&HealthCheckConfig{},
 		)
+	}
+
+	if config.WebApp != nil && config.WebApp.Port == "" {
+		config.WebApp.Port = "8080"
 	}
 
 	return &App{
@@ -52,10 +58,9 @@ func (app *App) Run() error {
 		shutdown <- true
 	}()
 
-	healthRouter := app.HealthCheck.Router()
 	healthServer := &http.Server{
 		Addr:           ":" + app.HealthCheck.Port,
-		Handler:        healthRouter,
+		Handler:        app.HealthCheck.Router(),
 		ReadTimeout:    5 * time.Second,
 		WriteTimeout:   5 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -74,6 +79,27 @@ func (app *App) Run() error {
 			log.Fatal().Err(err).Msg("health check server shutdown failed")
 		}
 	}()
+
+	if app.WebApp != nil {
+		webAppServer := &http.Server{
+			Addr:           ":" + app.WebApp.Port,
+			Handler:        app.WebApp.Router(),
+			ReadTimeout:    5 * time.Second,
+			WriteTimeout:   5 * time.Second,
+			MaxHeaderBytes: 1 << 20,
+		}
+
+		go func() {
+			log.Info().Msg("starting main server on port 8080")
+			if err := webAppServer.ListenAndServe(); err != nil {
+				log.Fatal().Err(err).Msg("main server failed")
+			}
+
+			if err := webAppServer.Shutdown(ctx); err != nil {
+				log.Fatal().Err(err).Msg("main server shutdown failed")
+			}
+		}()
+	}
 
 	<-shutdown
 	log.Info().Msg("shutting down")

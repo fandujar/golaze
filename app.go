@@ -49,6 +49,29 @@ func (app *App) Run() error {
 		shutdown <- true
 	}()
 
+	healthRouter := app.HealthCheck.Router()
+	healthServer := &http.Server{
+		Addr:           ":" + app.HealthCheck.Port,
+		Handler:        healthRouter,
+		ReadTimeout:    5 * time.Second,
+		WriteTimeout:   5 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	ctx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownRelease()
+
+	go func() {
+		log.Info().Msgf("starting health check server on port %s", app.HealthCheck.Port)
+		if err := healthServer.ListenAndServe(); err != nil {
+			log.Fatal().Err(err).Msg("health check server failed")
+		}
+
+		if err := server.Shutdown(ctx); err != nil {
+			log.Fatalf("HTTP shutdown error: %v", err)
+		}
+	}()
+
 	<-shutdown
 	log.Info().Msg("shutting down")
 

@@ -10,6 +10,7 @@ type HealthCheckConfig struct {
 	Port           string
 	LivenessHooks  []func() error
 	ReadinessHooks []func() error
+	Router         *chi.Mux
 }
 
 type HealthCheck struct {
@@ -67,16 +68,15 @@ func NewHealthCheck(config *HealthCheckConfig) *HealthCheck {
 		config.Port = "8081"
 	}
 
+	if config.Router == nil {
+		r := NewRouter()
+		r.Get("/liveness", LivenessHandler(config.LivenessHooks...))
+		r.Get("/readiness", ReadinessHandler(config.ReadinessHooks...))
+
+		config.Router = r
+	}
+
 	return &HealthCheck{
 		config,
 	}
-}
-
-func (hc *HealthCheck) Router() http.Handler {
-	router := chi.NewRouter()
-
-	router.Get("/liveness", LivenessHandler(hc.LivenessHooks...))
-	router.Get("/readiness", ReadinessHandler(hc.ReadinessHooks...))
-
-	return router
 }

@@ -5,7 +5,8 @@ import (
 )
 
 type WebAppConfig struct {
-	Port string
+	Port   string
+	Router *chi.Mux
 }
 
 type WebApp struct {
@@ -17,12 +18,11 @@ func NewWebApp(config *WebAppConfig) *WebApp {
 		config.Port = "8080"
 	}
 
+	if config.Router == nil {
+		config.Router = NewRouter()
+	}
+
 	return &WebApp{
 		config,
 	}
-}
-
-func (app *WebApp) Router() *chi.Mux {
-	router := chi.NewRouter()
-	return router
 }

@@ -13,7 +13,7 @@ import (
 )
 
 type AppConfig struct {
-	LogLevel    *zerolog.Level
+	LogLevel    zerolog.Level
 	HealthCheck *HealthCheck
 	WebApp      *WebApp
 	Worker      *Worker
@@ -24,9 +24,8 @@ type App struct {
 }
 
 func NewApp(config *AppConfig) *App {
-	if config.LogLevel == nil {
-		level := zerolog.InfoLevel
-		config.LogLevel = &level
+	if config.LogLevel == zerolog.NoLevel {
+		config.LogLevel = zerolog.InfoLevel
 	}
 
 	if config.HealthCheck == nil {
@@ -45,7 +44,7 @@ func NewApp(config *AppConfig) *App {
 }
 
 func (app *App) Run() error {
-	zerolog.SetGlobalLevel(*app.LogLevel)
+	zerolog.SetGlobalLevel(app.LogLevel)
 
 	shutdown := make(chan bool, 1)
 	signals := make(chan os.Signal, 1)
@@ -60,7 +59,7 @@ func (app *App) Run() error {
 
 	healthServer := &http.Server{
 		Addr:           ":" + app.HealthCheck.Port,
-		Handler:        app.HealthCheck.Router(),
+		Handler:        app.HealthCheck.Router,
 		ReadTimeout:    5 * time.Second,
 		WriteTimeout:   5 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -83,7 +82,7 @@ func (app *App) Run() error {
 	if app.WebApp != nil {
 		webAppServer := &http.Server{
 			Addr:           ":" + app.WebApp.Port,
-			Handler:        app.WebApp.Router(),
+			Handler:        app.WebApp.Router,
 			ReadTimeout:    5 * time.Second,
 			WriteTimeout:   5 * time.Second,
 			MaxHeaderBytes: 1 << 20,

@@ -9,6 +9,8 @@ import (
 
 func main() {
 	router := golaze.NewRouter()
+	router.Use(golaze.LogMiddleware)
+
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		golaze.JSONResponse(w, map[string]string{"message": "Hello, World!"}, http.StatusOK)
 	})

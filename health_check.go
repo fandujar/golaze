@@ -1,6 +1,10 @@
 package golaze
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
 
 type HealthCheckConfig struct {
 	Port           string

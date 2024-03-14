@@ -1,9 +1,12 @@
 package golaze
 
 import (
+	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -67,8 +70,8 @@ func (app *App) Run() error {
 			log.Fatal().Err(err).Msg("health check server failed")
 		}
 
-		if err := server.Shutdown(ctx); err != nil {
-			log.Fatalf("HTTP shutdown error: %v", err)
+		if err := healthServer.Shutdown(ctx); err != nil {
+			log.Fatal().Err(err).Msg("health check server shutdown failed")
 		}
 	}()
 

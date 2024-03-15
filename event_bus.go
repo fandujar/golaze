@@ -6,6 +6,7 @@ import (
 
 type EventBusConfig struct {
 	Subscribers map[string][]EventBusHandler
+	Shutdown    chan bool
 	lock        *sync.RWMutex
 }
 

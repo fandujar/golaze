@@ -22,3 +22,4 @@ go.work
 
 # Avoid commit test binaries
 examples/web_app/web_app
+examples/worker/worker

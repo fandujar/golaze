@@ -9,7 +9,7 @@ import (
 )
 
 type WorkerConfig struct {
-	Task     *[]Task
+	Tasks    []*Task
 	Shutdown chan bool
 }
 
@@ -17,23 +17,29 @@ type Worker struct {
 	*WorkerConfig
 }
 
-type Task struct {
+type TaskConfig struct {
 	Name string
 	Exec func() error
 	Done chan bool
 }
 
-func NewTask(name string, exec func() error) *Task {
-	if exec == nil {
-		exec = func() error {
+type Task struct {
+	*TaskConfig
+}
+
+func NewTask(config *TaskConfig) *Task {
+	if config.Exec == nil {
+		config.Exec = func() error {
 			return nil
 		}
 	}
 
+	if config.Done == nil {
+		config.Done = make(chan bool)
+	}
+
 	return &Task{
-		Name: name,
-		Exec: exec,
-		Done: make(chan bool, 1),
+		config,
 	}
 }
 
@@ -56,6 +62,10 @@ func NewWorker(config *WorkerConfig) *Worker {
 	}
 }
 
+func (w *Worker) AddTask(task *Task) {
+	w.Tasks = append(w.Tasks, task)
+}
+
 func (w *Worker) Start() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
@@ -72,7 +82,7 @@ func (w *Worker) Start() {
 			log.Info().Msg("worker stopped")
 			return
 		default:
-			for _, task := range *w.Task {
+			for _, task := range w.Tasks {
 				go func() {
 					task.Run()
 				}()

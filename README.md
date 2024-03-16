@@ -9,4 +9,3 @@ The project is licensed under the MIT license.
 ## About
 
 The toolkit is created to facilitate personal Golang projects, making development smoother by including essential packages.
-

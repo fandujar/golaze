@@ -46,6 +46,6 @@ func main() {
 	}
 
 	// wait for the worker to finish
-	<-time.After(10 * time.Second)
-
+	<-worker.Shutdown
+	fmt.Println("worker finished")
 }

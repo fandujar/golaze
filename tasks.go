@@ -15,6 +15,7 @@ type TaskConfig struct {
 	Repeat        int // -1 for infinite, 0 for no repeat, > 0 for n times
 	RepeatDelay   time.Duration
 	Timeout       time.Duration
+	RunHistory    []time.Time
 }
 
 type Task struct {
@@ -36,6 +37,14 @@ func NewTask(config *TaskConfig) *Task {
 		config.Timeout = 5 * time.Second
 	}
 
+	if config.RetryInterval == 0 {
+		config.RetryInterval = 5 * time.Second
+	}
+
+	if config.RepeatDelay == 0 {
+		config.RepeatDelay = 1 * time.Second
+	}
+
 	return &Task{
 		config,
 	}
@@ -43,6 +52,7 @@ func NewTask(config *TaskConfig) *Task {
 
 func (t *Task) Run(state *State) {
 	go func() {
+		t.RunHistory = append(t.RunHistory, time.Now())
 		if err := t.Exec(state); err != nil {
 			log.Error().Err(err).Msgf("task %s failed", t.Name)
 		}

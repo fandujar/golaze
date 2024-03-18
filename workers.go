@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -24,6 +25,18 @@ type Worker struct {
 type State struct {
 	Data map[string]interface{}
 	lock sync.Mutex
+}
+
+func (s *State) Set(key string, value interface{}) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.Data[key] = value
+}
+
+func (s *State) Get(key string) interface{} {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.Data[key]
 }
 
 func NewWorker(config *WorkerConfig) *Worker {
@@ -112,9 +125,24 @@ func (w *Worker) Start() {
 			}
 			for i := 0; i < w.ConcurrentTasks; i++ {
 				task := w.Tasks[i]
+
+				// remove the task if it has run the number of times specified
 				if task.Repeat == 0 {
 					w.Tasks = append(w.Tasks[:i], w.Tasks[i+1:]...)
 				}
+
+				if task.Repeat > 0 && len(task.RunHistory) >= task.Repeat {
+					w.Tasks = append(w.Tasks[:i], w.Tasks[i+1:]...)
+				}
+
+				// check if the repeat delay has passed
+				if len(task.RunHistory) > 0 && task.RepeatDelay > 0 && time.Since(task.RunHistory[len(task.RunHistory)-1]) < task.RepeatDelay {
+					continue
+				}
+
+				// TODO: check if the task is already running
+
+				// TODO: clean up the run history to avoid memory leaks
 
 				wg.Add(1)
 				go func(i int) {

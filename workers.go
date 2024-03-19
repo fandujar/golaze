@@ -162,7 +162,9 @@ func (w *Worker) runTasks() {
 			return
 		}
 
-		// TODO: check if the task is already running
+		if task.IsRunning() {
+			return
+		}
 
 		// TODO: clean up the run history to avoid memory leaks
 

@@ -13,6 +13,8 @@ import (
 )
 
 type AppConfig struct {
+	Name        string
+	Version     string
 	LogLevel    zerolog.Level
 	HealthCheck *HealthCheck
 	WebApp      *WebApp
@@ -41,6 +43,10 @@ func NewApp(config *AppConfig) *App {
 	return &App{
 		config,
 	}
+}
+
+func (app *App) AddWorker(worker *Worker) {
+	app.Worker = worker
 }
 
 func (app *App) Run() error {
@@ -97,6 +103,13 @@ func (app *App) Run() error {
 			if err := webAppServer.Shutdown(ctx); err != nil {
 				log.Fatal().Err(err).Msg("main server shutdown failed")
 			}
+		}()
+	}
+
+	if app.Worker != nil {
+		go func() {
+			log.Info().Msg("starting worker")
+			app.Worker.Start()
 		}()
 	}
 

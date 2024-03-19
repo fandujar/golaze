@@ -1,6 +1,7 @@
 package golaze
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -37,6 +38,22 @@ func (s *State) Get(key string) interface{} {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	return s.Data[key]
+}
+
+func (s *State) Delete(key string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	delete(s.Data, key)
+}
+
+func (s *State) Clear() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.Data = make(map[string]interface{})
+}
+
+func (s *State) Context() context.Context {
+	return context.WithValue(context.Background(), "state", s)
 }
 
 func NewWorker(config *WorkerConfig) *Worker {

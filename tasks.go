@@ -9,13 +9,14 @@ import (
 type TaskConfig struct {
 	Name          string
 	Exec          func(state *State) error
-	Done          chan bool
 	MaxRetries    int
 	RetryInterval time.Duration
 	Repeat        int // -1 for infinite, 0 for no repeat, > 0 for n times
 	RepeatDelay   time.Duration
 	Timeout       time.Duration
 	RunHistory    []time.Time
+
+	Done chan bool
 }
 
 type Task struct {
@@ -54,6 +55,17 @@ func NewTask(config *TaskConfig) *Task {
 	}
 }
 
+func (t *Task) IsRunning() bool {
+	// Check if the task is currently running
+	// by checking the length of the Done channel
+	select {
+	case <-t.Done:
+		return false
+	default:
+		return true
+	}
+}
+
 func (t *Task) Run(state *State) {
 	go func() {
 		t.RunHistory = append(t.RunHistory, time.Now())
@@ -67,8 +79,10 @@ func (t *Task) Run(state *State) {
 	select {
 	case <-t.Done:
 		log.Info().Msgf("task %s completed", t.Name)
+
 	case <-time.After(t.Timeout):
 		log.Error().Msgf("task %s timed out", t.Name)
 		t.Done <- true
+
 	}
 }

@@ -13,10 +13,10 @@ import (
 
 type WorkerConfig struct {
 	Tasks           []*Task
-	lock            sync.Mutex
 	Shutdown        chan bool
 	State           *State
 	ConcurrentTasks int
+	lock            sync.Mutex
 }
 
 type Worker struct {
@@ -109,48 +109,55 @@ func (w *Worker) Start() {
 			log.Info().Msg("worker stopped")
 			return
 		default:
-			// Type of tasks are:
-			// - tasks that run once
-			// - tasks that run n times or forever
-			// - tasks that can retry n times in case of failure
-
-			if len(w.Tasks) == 0 {
-				continue
-			}
-
-			// run tasks concurrently respecting the limit of concurrent tasks
-			var wg sync.WaitGroup
-			if len(w.Tasks) < w.ConcurrentTasks {
-				w.ConcurrentTasks = len(w.Tasks)
-			}
-			for i := 0; i < w.ConcurrentTasks; i++ {
-				task := w.Tasks[i]
-
-				// remove the task if it has run the number of times specified
-				if task.Repeat == 0 {
-					w.Tasks = append(w.Tasks[:i], w.Tasks[i+1:]...)
-				}
-
-				if task.Repeat > 0 && len(task.RunHistory) >= task.Repeat {
-					w.Tasks = append(w.Tasks[:i], w.Tasks[i+1:]...)
-				}
-
-				// check if the repeat delay has passed
-				if len(task.RunHistory) > 0 && task.RepeatDelay > 0 && time.Since(task.RunHistory[len(task.RunHistory)-1]) < task.RepeatDelay {
-					continue
-				}
-
-				// TODO: check if the task is already running
-
-				// TODO: clean up the run history to avoid memory leaks
-
-				wg.Add(1)
-				go func(i int) {
-					defer wg.Done()
-					task.Run(w.State)
-				}(i)
-			}
+			w.runTasks()
 		}
+	}
+}
+
+func (w *Worker) runTasks() {
+	// Type of tasks are:
+	// - tasks that run n times
+	// - tasks that run continuously
+	// - tasks that can retry n times in case of failure
+
+	if len(w.Tasks) == 0 {
+		return
+	}
+
+	// run tasks concurrently respecting the limit of concurrent tasks
+	var wg sync.WaitGroup
+	if len(w.Tasks) < w.ConcurrentTasks {
+		w.ConcurrentTasks = len(w.Tasks)
+	}
+	for i := 0; i < w.ConcurrentTasks; i++ {
+		task := w.Tasks[i]
+
+		// remove the task if it has run the number of times specified
+		if task.Repeat == 1 {
+			w.RemoveTask(task)
+		}
+
+		if task.Repeat > 1 {
+			task.Repeat--
+		}
+
+		if len(task.RunHistory) > 0 && time.Since(task.RunHistory[len(task.RunHistory)-1]) < task.RepeatDelay {
+			return
+		}
+
+		// TODO: check if the task is already running
+
+		// TODO: clean up the run history to avoid memory leaks
+
+		// TODO: handle retries and retry interval
+
+		// TODO: handle repeat delay
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			task.Run(w.State)
+		}()
 	}
 }
 

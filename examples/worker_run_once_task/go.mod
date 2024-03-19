@@ -1,4 +1,4 @@
-module github.com/fandujar/golaze/examples/worker
+module github.com/fandujar/golaze/examples/worker_run_once_task
 
 go 1.22.1
 

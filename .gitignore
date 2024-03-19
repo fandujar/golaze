@@ -22,4 +22,5 @@ go.work
 
 # Avoid commit test binaries
 examples/web_app/web_app
-examples/worker/worker
+examples/worker_run_once_task/worker_run_once_task
+examples/worker_run_forever_task/worker_run_forever_task

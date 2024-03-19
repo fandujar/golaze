@@ -39,7 +39,6 @@ func main() {
 
 	// add the same task again after 5 seconds
 	time.Sleep(5 * time.Second)
-	task.Repeat = -1
 	err = worker.AddTask(task)
 	if err != nil {
 		fmt.Println(err)

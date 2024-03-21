@@ -14,8 +14,41 @@ func main() {
 
 	task := golaze.NewTask(
 		&golaze.TaskConfig{
-			Name: "example 1",
-			Exec: func(state *golaze.State) error {
+			Name:    "example 1",
+			Timeout: 3 * time.Second,
+			Exec: func(state *golaze.State, cancel chan bool) error {
+				if state.Get("example") == nil {
+					state.Set("example", 0)
+				}
+
+				state.Set("example", state.Get("example").(int)+1)
+				fmt.Printf("running task example: %d\n", state.Data["example"])
+
+				return nil
+			},
+		})
+
+	task2 := golaze.NewTask(
+		&golaze.TaskConfig{
+			Name:    "example 2",
+			Timeout: 3 * time.Second,
+			Exec: func(state *golaze.State, cancel chan bool) error {
+				if state.Get("example") == nil {
+					state.Set("example", 0)
+				}
+
+				state.Set("example", state.Get("example").(int)+1)
+				fmt.Printf("running task example: %d\n", state.Data["example"])
+
+				return nil
+			},
+		})
+
+	task3 := golaze.NewTask(
+		&golaze.TaskConfig{
+			Name:    "example 3",
+			Timeout: 3 * time.Second,
+			Exec: func(state *golaze.State, cancel chan bool) error {
 				if state.Get("example") == nil {
 					state.Set("example", 0)
 				}
@@ -30,16 +63,12 @@ func main() {
 	worker.AddTask(task)
 	go worker.Start()
 
-	// add the same task again after 5 seconds
-	time.Sleep(5 * time.Second)
-	err := worker.AddTask(task)
+	err := worker.AddTask(task2)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	// add the same task again after 5 seconds
-	time.Sleep(5 * time.Second)
-	err = worker.AddTask(task)
+	err = worker.AddTask(task3)
 	if err != nil {
 		fmt.Println(err)
 	}

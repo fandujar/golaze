@@ -1,7 +1,6 @@
 package golaze
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -76,36 +75,38 @@ func (t *Task) IsRunning() bool {
 }
 
 func (t *Task) Run(state *State, wg *sync.WaitGroup) {
+
 	wg.Add(1)
+
 	go func(t *Task, wg *sync.WaitGroup) {
 		defer wg.Done()
 
-		t.lock.Lock()
-		t.RunHistory = append(t.RunHistory, time.Now())
-		t.lock.Unlock()
+		taskError := make(chan error)
 
-		log.Info().Msgf("task %s started", t.Name)
+		go func(t *Task, wg *sync.WaitGroup) {
+			t.lock.Lock()
+			t.RunHistory = append(t.RunHistory, time.Now())
+			t.lock.Unlock()
 
-		var taskError error
+			log.Info().Msgf("task %s started", t.Name)
+			err := t.Exec(state, t.Cancel)
+			taskError <- err
+		}(t, wg)
+
 		select {
 		case <-t.Cancel:
 			log.Info().Msgf("task %s cancelled", t.Name)
-
-		case <-time.After(t.Timeout):
-			taskError = fmt.Errorf("task %s timed out", t.Name)
-
-		default:
-			if err := t.Exec(state, t.Cancel); err != nil {
-				taskError = err
+		case err := <-taskError:
+			if err != nil {
+				log.Error().Err(err).Msgf("task %s failed", t.Name)
+			} else {
+				log.Info().Msgf("task %s completed", t.Name)
 			}
-		}
-
-		if taskError != nil {
-			log.Error().Msgf("task %s failed: %s", t.Name, taskError)
-		} else {
-			log.Info().Msgf("task %s completed", t.Name)
+		case <-time.After(t.Timeout):
+			log.Error().Msgf("task %s timed out", t.Name)
 		}
 
 		t.Done <- true
+
 	}(t, wg)
 }

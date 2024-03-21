@@ -14,7 +14,7 @@ func main() {
 
 	task := golaze.NewTask(
 		&golaze.TaskConfig{
-			Name:    "example 1",
+			Name:    "task 1 - complete",
 			Timeout: 3 * time.Second,
 			Exec: func(state *golaze.State, cancel chan bool) error {
 				if state.Get("example") == nil {
@@ -30,7 +30,7 @@ func main() {
 
 	task2 := golaze.NewTask(
 		&golaze.TaskConfig{
-			Name:    "example 2",
+			Name:    "task 2 - timeout",
 			Timeout: 3 * time.Second,
 			Exec: func(state *golaze.State, cancel chan bool) error {
 				if state.Get("example") == nil {
@@ -40,13 +40,14 @@ func main() {
 				state.Set("example", state.Get("example").(int)+1)
 				fmt.Printf("running task example: %d\n", state.Data["example"])
 
+				time.Sleep(5 * time.Second)
 				return nil
 			},
 		})
 
 	task3 := golaze.NewTask(
 		&golaze.TaskConfig{
-			Name:    "example 3",
+			Name:    "task 3 - cancel",
 			Timeout: 3 * time.Second,
 			Exec: func(state *golaze.State, cancel chan bool) error {
 				if state.Get("example") == nil {
@@ -55,6 +56,8 @@ func main() {
 
 				state.Set("example", state.Get("example").(int)+1)
 				fmt.Printf("running task example: %d\n", state.Data["example"])
+
+				cancel <- true
 
 				return nil
 			},

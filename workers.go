@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -143,9 +142,6 @@ func (w *Worker) runTasks() {
 
 	// run tasks concurrently respecting the limit of concurrent tasks
 	var wg sync.WaitGroup
-	if len(w.Tasks) < w.ConcurrentTasks {
-		w.ConcurrentTasks = len(w.Tasks)
-	}
 	for i := 0; i < w.ConcurrentTasks; i++ {
 		task := w.Tasks[i]
 
@@ -158,14 +154,6 @@ func (w *Worker) runTasks() {
 			task.Repeat--
 		}
 
-		if len(task.RunHistory) > 0 && time.Since(task.RunHistory[len(task.RunHistory)-1]) < task.RepeatDelay {
-			return
-		}
-
-		if task.IsRunning() {
-			return
-		}
-
 		// TODO: clean up the run history to avoid memory leaks
 
 		// TODO: handle retries and retry interval
@@ -173,10 +161,10 @@ func (w *Worker) runTasks() {
 		// TODO: handle repeat delay
 
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			task.Run(w.State)
-		}()
+		go func(t *Task) {
+			t.Run(w.State, &wg)
+		}(task)
+		<-task.Done
 	}
 }
 

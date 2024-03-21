@@ -94,23 +94,23 @@ func (app *App) Run() error {
 			MaxHeaderBytes: 1 << 20,
 		}
 
-		go func() {
+		go func(w *http.Server) {
 			log.Info().Msg("starting main server on port 8080")
-			if err := webAppServer.ListenAndServe(); err != nil {
+			if err := w.ListenAndServe(); err != nil {
 				log.Fatal().Err(err).Msg("main server failed")
 			}
 
-			if err := webAppServer.Shutdown(ctx); err != nil {
+			if err := w.Shutdown(ctx); err != nil {
 				log.Fatal().Err(err).Msg("main server shutdown failed")
 			}
-		}()
+		}(webAppServer)
 	}
 
 	if app.Worker != nil {
-		go func() {
+		go func(w *Worker) {
 			log.Info().Msg("starting worker")
-			app.Worker.Start()
-		}()
+			w.Start()
+		}(app.Worker)
 	}
 
 	<-shutdown

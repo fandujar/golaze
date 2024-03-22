@@ -21,7 +21,15 @@ type WorkerConfig struct {
 
 type Worker struct {
 	*WorkerConfig
+	taskQueue *TaskQueue
 }
+
+type TaskQueue struct {
+	tasks   []Task
+	enqueue chan Task
+	dequeue chan Task
+}
+
 type State struct {
 	Data map[string]interface{}
 	lock sync.Mutex
@@ -55,6 +63,25 @@ func (s *State) Context() context.Context {
 	return context.WithValue(context.Background(), "state", s)
 }
 
+func (tq *TaskQueue) Start() {
+	go func() {
+		for {
+			if len(tq.tasks) == 0 {
+				continue
+			}
+
+			select {
+			case task := <-tq.enqueue:
+				log.Debug().Msgf("enqueuing task %s", task.Name)
+				tq.tasks = append(tq.tasks, task)
+			case tq.dequeue <- tq.tasks[0]:
+				log.Debug().Msgf("dequeuing task %s", tq.tasks[0].Name)
+				tq.tasks = tq.tasks[1:]
+			}
+		}
+	}()
+}
+
 func NewWorker(config *WorkerConfig) *Worker {
 	if config.Tasks == nil {
 		config.Tasks = make([]*Task, 0)
@@ -65,7 +92,7 @@ func NewWorker(config *WorkerConfig) *Worker {
 	}
 
 	if config.ConcurrentTasks == 0 {
-		config.ConcurrentTasks = 1
+		config.ConcurrentTasks = 2
 	}
 
 	if config.State == nil {
@@ -74,8 +101,15 @@ func NewWorker(config *WorkerConfig) *Worker {
 		}
 	}
 
+	queue := &TaskQueue{
+		tasks:   make([]Task, 0),
+		enqueue: make(chan Task),
+		dequeue: make(chan Task),
+	}
+
 	return &Worker{
 		config,
+		queue,
 	}
 }
 
@@ -119,52 +153,46 @@ func (w *Worker) Start() {
 		w.Shutdown <- true
 	}()
 
+	w.taskQueue.Start()
+
+	for i := 0; i < w.ConcurrentTasks; i++ {
+		go func() {
+			log.Info().Msg("runner started")
+			for {
+				select {
+				case <-w.Shutdown:
+					return
+				default:
+					task := <-w.taskQueue.dequeue
+					task.Run(w.State)
+				}
+			}
+		}()
+	}
+
 	for {
 		select {
 		case <-w.Shutdown:
 			log.Info().Msg("worker stopped")
 			return
 		default:
-			w.runTasks()
+			for _, task := range w.Tasks {
+				w.taskQueue.enqueue <- *task
+				// if task.Repeat == -1 {
+				// 	go func() {
+				// 		time.After(task.RepeatDelay)
+				// 		w.taskQueue.enqueue <- *task
+				// 	}()
+				// }
+				// if task.Repeat >= 1 {
+				// 	task.Repeat--
+				// 	go func() {
+				// 		time.After(task.RepeatDelay)
+				// 		w.taskQueue.enqueue <- *task
+				// 	}()
+				// }
+			}
 		}
-	}
-}
-
-func (w *Worker) runTasks() {
-	// Type of tasks are:
-	// - tasks that run n times
-	// - tasks that run continuously
-	// - tasks that can retry n times in case of failure
-
-	if len(w.Tasks) == 0 {
-		return
-	}
-
-	// run tasks concurrently respecting the limit of concurrent tasks
-	var wg sync.WaitGroup
-	for i := 0; i < w.ConcurrentTasks; i++ {
-		task := w.Tasks[i]
-
-		// remove the task if it has run the number of times specified
-		if task.Repeat == 1 {
-			w.RemoveTask(task)
-		}
-
-		if task.Repeat > 1 {
-			task.Repeat--
-		}
-
-		// TODO: clean up the run history to avoid memory leaks
-
-		// TODO: handle retries and retry interval
-
-		// TODO: handle repeat delay
-
-		wg.Add(1)
-		go func(t *Task) {
-			t.Run(w.State, &wg)
-		}(task)
-		<-task.Done
 	}
 }
 

@@ -63,27 +63,11 @@ func NewTask(config *TaskConfig) *Task {
 	}
 }
 
-func (t *Task) IsRunning() bool {
-	// Check if the task is currently running
-	// by checking the length of the Done channel
-	select {
-	case <-t.Done:
-		return false
-	default:
-		return true
-	}
-}
-
-func (t *Task) Run(state *State, wg *sync.WaitGroup) {
-
-	wg.Add(1)
-
-	go func(t *Task, wg *sync.WaitGroup) {
-		defer wg.Done()
-
+func (t *Task) Run(state *State) {
+	go func() {
 		taskError := make(chan error)
 
-		go func(t *Task, wg *sync.WaitGroup) {
+		go func() {
 			t.lock.Lock()
 			t.RunHistory = append(t.RunHistory, time.Now())
 			t.lock.Unlock()
@@ -91,7 +75,7 @@ func (t *Task) Run(state *State, wg *sync.WaitGroup) {
 			log.Info().Msgf("task %s started", t.Name)
 			err := t.Exec(state, t.Cancel)
 			taskError <- err
-		}(t, wg)
+		}()
 
 		select {
 		case <-t.Cancel:
@@ -108,5 +92,5 @@ func (t *Task) Run(state *State, wg *sync.WaitGroup) {
 
 		t.Done <- true
 
-	}(t, wg)
+	}()
 }

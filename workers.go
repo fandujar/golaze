@@ -7,12 +7,14 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
 type WorkerConfig struct {
 	Tasks           []*Task
+	Runners         []*Runner
 	Shutdown        chan bool
 	State           *State
 	ConcurrentTasks int
@@ -24,62 +26,31 @@ type Worker struct {
 	taskQueue *TaskQueue
 }
 
-type TaskQueue struct {
-	tasks   []Task
-	enqueue chan Task
-	dequeue chan Task
+type Runner struct {
+	ID int
 }
 
-type State struct {
-	Data map[string]interface{}
-	lock sync.Mutex
+func NewRunner(id int) *Runner {
+	return &Runner{
+		ID: id,
+	}
 }
 
-func (s *State) Set(key string, value interface{}) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.Data[key] = value
-}
-
-func (s *State) Get(key string) interface{} {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	return s.Data[key]
-}
-
-func (s *State) Delete(key string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	delete(s.Data, key)
-}
-
-func (s *State) Clear() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.Data = make(map[string]interface{})
-}
-
-func (s *State) Context() context.Context {
-	return context.WithValue(context.Background(), "state", s)
-}
-
-func (tq *TaskQueue) Start() {
-	go func() {
-		for {
-			if len(tq.tasks) == 0 {
+func (r *Runner) Run(taskQueue chan Task, ctx context.Context, state *State) {
+	log.Debug().Msgf("runner %d started", r.ID)
+	for {
+		select {
+		case task := <-taskQueue:
+			if task == (Task{}) {
 				continue
 			}
-
-			select {
-			case task := <-tq.enqueue:
-				log.Debug().Msgf("enqueuing task %s", task.Name)
-				tq.tasks = append(tq.tasks, task)
-			case tq.dequeue <- tq.tasks[0]:
-				log.Debug().Msgf("dequeuing task %s", tq.tasks[0].Name)
-				tq.tasks = tq.tasks[1:]
-			}
+			log.Debug().Msgf("runner %d running task %s", r.ID, task.Name)
+			task.Run(ctx, state)
+		case <-ctx.Done():
+			log.Debug().Msgf("runner %d stopped", r.ID)
+			return
 		}
-	}()
+	}
 }
 
 func NewWorker(config *WorkerConfig) *Worker {
@@ -154,20 +125,12 @@ func (w *Worker) Start() {
 	}()
 
 	w.taskQueue.Start()
+	w.Runners = make([]*Runner, w.ConcurrentTasks)
 
 	for i := 0; i < w.ConcurrentTasks; i++ {
-		go func() {
-			log.Info().Msg("runner started")
-			for {
-				select {
-				case <-w.Shutdown:
-					return
-				default:
-					task := <-w.taskQueue.dequeue
-					task.Run(w.State)
-				}
-			}
-		}()
+		w.Runners[i] = NewRunner(i)
+		ctx := w.State.Context()
+		go w.Runners[i].Run(w.taskQueue.dequeue, ctx, w.State)
 	}
 
 	for {
@@ -177,20 +140,30 @@ func (w *Worker) Start() {
 			return
 		default:
 			for _, task := range w.Tasks {
-				w.taskQueue.enqueue <- *task
-				// if task.Repeat == -1 {
-				// 	go func() {
-				// 		time.After(task.RepeatDelay)
-				// 		w.taskQueue.enqueue <- *task
-				// 	}()
-				// }
-				// if task.Repeat >= 1 {
-				// 	task.Repeat--
-				// 	go func() {
-				// 		time.After(task.RepeatDelay)
-				// 		w.taskQueue.enqueue <- *task
-				// 	}()
-				// }
+				go func(t *Task) {
+					for {
+						select {
+						case <-w.Shutdown:
+							return
+						case <-t.Done:
+							<-time.After(t.RetryInterval)
+							if t.Repeat >= 1 {
+								t.Repeat--
+							}
+
+							if t.Repeat == 0 {
+								return
+							}
+
+							w.taskQueue.enqueue <- *t
+						default:
+							if t.Done == nil {
+								t.Done = make(chan bool)
+								t.Done <- false
+							}
+						}
+					}
+				}(task)
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package golaze
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -63,7 +64,7 @@ func NewTask(config *TaskConfig) *Task {
 	}
 }
 
-func (t *Task) Run(state *State) {
+func (t *Task) Run(ctx context.Context, state *State) {
 	go func() {
 		taskError := make(chan error)
 
@@ -78,6 +79,8 @@ func (t *Task) Run(state *State) {
 		}()
 
 		select {
+		case <-ctx.Done():
+			log.Info().Msgf("task %s stopped", t.Name)
 		case <-t.Cancel:
 			log.Info().Msgf("task %s cancelled", t.Name)
 		case err := <-taskError:
@@ -91,6 +94,5 @@ func (t *Task) Run(state *State) {
 		}
 
 		t.Done <- true
-
 	}()
 }

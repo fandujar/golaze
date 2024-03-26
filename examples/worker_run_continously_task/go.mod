@@ -1,4 +1,4 @@
-module github.com/fandujar/golaze/examples/worker_run_forever_task
+module github.com/fandujar/golaze/examples/worker_run_continously_task
 
 go 1.22.1
 

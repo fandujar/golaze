@@ -5,9 +5,12 @@ import (
 	"time"
 
 	"github.com/fandujar/golaze"
+	"github.com/rs/zerolog"
 )
 
 func main() {
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
 	worker := golaze.NewWorker(
 		&golaze.WorkerConfig{},
 	)

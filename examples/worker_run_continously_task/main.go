@@ -34,6 +34,5 @@ func main() {
 	go worker.Start()
 
 	// wait for the worker to finish
-	<-worker.Shutdown
-	fmt.Println("worker finished")
+	worker.WaitShutdown()
 }

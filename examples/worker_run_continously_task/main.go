@@ -5,12 +5,9 @@ import (
 	"time"
 
 	"github.com/fandujar/golaze"
-	"github.com/rs/zerolog"
 )
 
 func main() {
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-
 	worker := golaze.NewWorker(
 		&golaze.WorkerConfig{},
 	)
@@ -28,6 +25,7 @@ func main() {
 
 				state.Set("counter", state.Get("counter").(int)+1)
 				fmt.Printf("running task example: %d\n", state.Get("counter"))
+				time.Sleep(2 * time.Second)
 				return nil
 			},
 		})

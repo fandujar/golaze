@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/pubsub v1.37.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/google/go-github/v60 v60.0.0
+	github.com/google/go-github/v61 v61.0.0
 	github.com/rs/zerolog v1.32.0
 )
 

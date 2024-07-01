@@ -2,6 +2,7 @@ package golaze
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -65,7 +66,12 @@ func ReadinessHandler(hooks ...func() error) func(w http.ResponseWriter, r *http
 
 func NewHealthCheck(config *HealthCheckConfig) *HealthCheck {
 	if config.Port == "" {
-		config.Port = "8081"
+		port := os.Getenv("HEALTHCHECK_PORT")
+		if port == "" {
+			config.Port = "8081"
+		} else {
+			config.Port = port
+		}
 	}
 
 	if config.Router == nil {

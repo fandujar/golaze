@@ -1,6 +1,7 @@
 package golaze
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -19,6 +20,8 @@ type TaskConfig struct {
 
 	Cancel chan bool
 	Done   chan bool
+
+	lock sync.Mutex
 }
 
 type Task struct {
@@ -61,43 +64,35 @@ func NewTask(config *TaskConfig) *Task {
 	}
 }
 
-func (t *Task) IsRunning() bool {
-	// Check if the task is currently running
-	// by checking the length of the Done channel
-	select {
-	case <-t.Done:
-		return false
-	default:
-		return true
-	}
-}
-
-func (t *Task) Run(state *State, wg *sync.WaitGroup) {
-	wg.Add(1)
+func (t *Task) Run(ctx context.Context, state *State) {
 	go func() {
-		t.RunHistory = append(t.RunHistory, time.Now())
-		log.Info().Msgf("task %s started", t.Name)
-		if err := t.Exec(state, t.Cancel); err != nil {
-			log.Error().Err(err).Msgf("task %s failed", t.Name)
+		taskError := make(chan error)
+
+		go func() {
+			t.lock.Lock()
+			t.RunHistory = append(t.RunHistory, time.Now())
+			t.lock.Unlock()
+
+			log.Info().Msgf("task %s started", t.Name)
+			err := t.Exec(state, t.Cancel)
+			taskError <- err
+		}()
+
+		select {
+		case <-ctx.Done():
+			log.Info().Msgf("task %s stopped", t.Name)
+		case <-t.Cancel:
+			log.Info().Msgf("task %s cancelled", t.Name)
+		case err := <-taskError:
+			if err != nil {
+				log.Error().Err(err).Msgf("task %s failed", t.Name)
+			} else {
+				log.Info().Msgf("task %s completed", t.Name)
+			}
+		case <-time.After(t.Timeout):
+			log.Error().Msgf("task %s timed out", t.Name)
 		}
 
 		t.Done <- true
-		wg.Done()
 	}()
-
-	select {
-	case <-t.Cancel:
-		log.Info().Msgf("task %s cancelled", t.Name)
-		wg.Done()
-		t.Done <- true
-
-	case <-t.Done:
-		log.Info().Msgf("task %s completed", t.Name)
-		wg.Done()
-
-	case <-time.After(t.Timeout):
-		log.Error().Msgf("task %s timed out", t.Name)
-		wg.Done()
-		t.Done <- true
-	}
 }

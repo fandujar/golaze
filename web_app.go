@@ -1,6 +1,8 @@
 package golaze
 
 import (
+	"os"
+
 	"github.com/go-chi/chi/v5"
 )
 
@@ -15,7 +17,12 @@ type WebApp struct {
 
 func NewWebApp(config *WebAppConfig) *WebApp {
 	if config.Port == "" {
-		config.Port = "8080"
+		port := os.Getenv("PORT")
+		if port == "" {
+			config.Port = "8080"
+		} else {
+			config.Port = port
+		}
 	}
 
 	if config.Router == nil {

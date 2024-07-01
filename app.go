@@ -13,12 +13,13 @@ import (
 )
 
 type AppConfig struct {
-	Name        string
-	Version     string
-	LogLevel    zerolog.Level
-	HealthCheck *HealthCheck
-	WebApp      *WebApp
-	Worker      *Worker
+	Name            string
+	Version         string
+	LogLevel        zerolog.Level
+	HealthCheck     *HealthCheck
+	WebApp          *WebApp
+	Worker          *Worker
+	ShutdownTimeout time.Duration
 }
 
 type App struct {
@@ -40,6 +41,10 @@ func NewApp(config *AppConfig) *App {
 		config.WebApp.Port = "8080"
 	}
 
+	if config.ShutdownTimeout == 0 {
+		config.ShutdownTimeout = 10 * time.Second
+	}
+
 	return &App{
 		config,
 	}
@@ -55,6 +60,9 @@ func (app *App) Run() error {
 	shutdown := make(chan bool, 1)
 	signals := make(chan os.Signal, 1)
 
+	var healthCheckServer *http.Server
+	var webAppServer *http.Server
+
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
@@ -63,7 +71,7 @@ func (app *App) Run() error {
 		shutdown <- true
 	}()
 
-	healthServer := &http.Server{
+	healthCheckServer = &http.Server{
 		Addr:           ":" + app.HealthCheck.Port,
 		Handler:        app.HealthCheck.Router,
 		ReadTimeout:    5 * time.Second,
@@ -71,22 +79,15 @@ func (app *App) Run() error {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	ctx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownRelease()
-
 	go func() {
 		log.Info().Msgf("starting health check server on port %s", app.HealthCheck.Port)
-		if err := healthServer.ListenAndServe(); err != nil {
+		if err := healthCheckServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal().Err(err).Msg("health check server failed")
-		}
-
-		if err := healthServer.Shutdown(ctx); err != nil {
-			log.Fatal().Err(err).Msg("health check server shutdown failed")
 		}
 	}()
 
 	if app.WebApp != nil {
-		webAppServer := &http.Server{
+		webAppServer = &http.Server{
 			Addr:           ":" + app.WebApp.Port,
 			Handler:        app.WebApp.Router,
 			ReadTimeout:    5 * time.Second,
@@ -94,16 +95,12 @@ func (app *App) Run() error {
 			MaxHeaderBytes: 1 << 20,
 		}
 
-		go func(w *http.Server) {
-			log.Info().Msg("starting main server on port 8080")
-			if err := w.ListenAndServe(); err != nil {
+		go func() {
+			log.Info().Msgf("starting web app server on port %s", app.WebApp.Port)
+			if err := webAppServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Fatal().Err(err).Msg("main server failed")
 			}
-
-			if err := w.Shutdown(ctx); err != nil {
-				log.Fatal().Err(err).Msg("main server shutdown failed")
-			}
-		}(webAppServer)
+		}()
 	}
 
 	if app.Worker != nil {
@@ -114,7 +111,19 @@ func (app *App) Run() error {
 	}
 
 	<-shutdown
-	log.Info().Msg("shutting down")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), app.ShutdownTimeout)
+	defer cancel()
+
+	if err := webAppServer.Shutdown(shutdownCtx); err != nil {
+		log.Fatal().Err(err).Msg("main server shutdown failed")
+	}
+
+	if err := healthCheckServer.Shutdown(shutdownCtx); err != nil {
+		log.Fatal().Err(err).Msg("health check server shutdown failed")
+	}
+
+	log.Info().Msg("shutdown complete")
 
 	return nil
 }

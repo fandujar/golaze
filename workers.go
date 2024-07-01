@@ -1,7 +1,6 @@
 package golaze
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,59 +12,26 @@ import (
 
 type WorkerConfig struct {
 	Tasks           []*Task
-	Shutdown        chan bool
 	State           *State
 	ConcurrentTasks int
-	lock            sync.Mutex
 }
 
 type Worker struct {
 	*WorkerConfig
-}
-type State struct {
-	Data map[string]interface{}
-	lock sync.Mutex
-}
-
-func (s *State) Set(key string, value interface{}) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.Data[key] = value
+	taskQueue *TaskQueue
+	lock      sync.Mutex
+	shutdown  chan bool
 }
 
-func (s *State) Get(key string) interface{} {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	return s.Data[key]
-}
-
-func (s *State) Delete(key string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	delete(s.Data, key)
-}
-
-func (s *State) Clear() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.Data = make(map[string]interface{})
-}
-
-func (s *State) Context() context.Context {
-	return context.WithValue(context.Background(), "state", s)
-}
-
+// NewWorker creates a new worker
 func NewWorker(config *WorkerConfig) *Worker {
 	if config.Tasks == nil {
 		config.Tasks = make([]*Task, 0)
 	}
 
-	if config.Shutdown == nil {
-		config.Shutdown = make(chan bool)
-	}
-
+	// default to 2 concurrent tasks
 	if config.ConcurrentTasks == 0 {
-		config.ConcurrentTasks = 1
+		config.ConcurrentTasks = 2
 	}
 
 	if config.State == nil {
@@ -74,11 +40,23 @@ func NewWorker(config *WorkerConfig) *Worker {
 		}
 	}
 
-	return &Worker{
-		config,
+	queue := &TaskQueue{
+		tasks:   make([]Task, 0),
+		enqueue: make(chan Task),
+		dequeue: make(chan Task),
 	}
+
+	w := &Worker{
+		WorkerConfig: config,
+		taskQueue:    queue,
+		shutdown:     make(chan bool),
+		lock:         sync.Mutex{},
+	}
+
+	return w
 }
 
+// AddTask adds a task to the worker
 func (w *Worker) AddTask(task *Task) error {
 	w.lock.Lock()
 	defer w.lock.Unlock()
@@ -95,6 +73,7 @@ func (w *Worker) AddTask(task *Task) error {
 	return nil
 }
 
+// RemoveTask removes a task from the worker
 func (w *Worker) RemoveTask(task *Task) error {
 	w.lock.Lock()
 	defer w.lock.Unlock()
@@ -108,7 +87,7 @@ func (w *Worker) RemoveTask(task *Task) error {
 	return nil
 }
 
-// Start the worker non-blocking
+// Start starts the worker
 func (w *Worker) Start() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
@@ -116,58 +95,16 @@ func (w *Worker) Start() {
 	go func() {
 		s := <-signals
 		log.Info().Msgf("received signal: %v", s)
-		w.Shutdown <- true
+		w.Stop()
 	}()
-
-	for {
-		select {
-		case <-w.Shutdown:
-			log.Info().Msg("worker stopped")
-			return
-		default:
-			w.runTasks()
-		}
-	}
 }
 
-func (w *Worker) runTasks() {
-	// Type of tasks are:
-	// - tasks that run n times
-	// - tasks that run continuously
-	// - tasks that can retry n times in case of failure
-
-	if len(w.Tasks) == 0 {
-		return
-	}
-
-	// run tasks concurrently respecting the limit of concurrent tasks
-	var wg sync.WaitGroup
-	for i := 0; i < w.ConcurrentTasks; i++ {
-		task := w.Tasks[i]
-
-		// remove the task if it has run the number of times specified
-		if task.Repeat == 1 {
-			w.RemoveTask(task)
-		}
-
-		if task.Repeat > 1 {
-			task.Repeat--
-		}
-
-		// TODO: clean up the run history to avoid memory leaks
-
-		// TODO: handle retries and retry interval
-
-		// TODO: handle repeat delay
-
-		wg.Add(1)
-		go func(t *Task) {
-			t.Run(w.State, &wg)
-		}(task)
-		<-task.Done
-	}
+// WaitShutdown waits for the worker to finish
+func (w *Worker) WaitShutdown() {
+	<-w.shutdown
 }
 
+// Stop stops the worker
 func (w *Worker) Stop() {
-	w.Shutdown <- true
+	w.shutdown <- true
 }

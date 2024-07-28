@@ -10,7 +10,7 @@ import (
 func main() {
 	app := golaze.NewApp(
 		&golaze.AppConfig{
-			Name: "Web App",
+			Name: "Worker Run Once Task",
 			Worker: golaze.NewWorker(
 				&golaze.WorkerConfig{},
 			),

@@ -79,7 +79,7 @@ func (w *WorkerServer) Start(ctx context.Context, worker *Worker) {
 			case task := <-w.taskQueue.enqueue:
 				w.taskQueue.dequeue <- task
 			case task := <-w.taskQueue.dequeue:
-				go task.Run(context.Background(), w.state)
+				go task.Run(ctx, w.state)
 			case <-w.shutdown:
 				return
 			}
@@ -92,6 +92,9 @@ func (w *WorkerServer) Start(ctx context.Context, worker *Worker) {
 
 // Stop stops the worker
 func (w *WorkerServer) Shutdown(ctx context.Context) error {
+	close(w.taskQueue.enqueue)
+	close(w.taskQueue.dequeue)
+
 	w.shutdown <- true
 	return nil
 }

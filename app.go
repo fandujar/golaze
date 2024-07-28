@@ -62,6 +62,7 @@ func (app *App) Run() error {
 
 	var healthCheckServer *http.Server
 	var webAppServer *http.Server
+	var workerServer *WorkerServer
 
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
@@ -104,10 +105,12 @@ func (app *App) Run() error {
 	}
 
 	if app.Worker != nil {
-		go func(w *Worker) {
-			log.Info().Msg("starting worker")
-			w.Start()
-		}(app.Worker)
+		workerServer = NewWorkerServer()
+		go func() {
+			log.Info().Msg("starting worker server")
+			ctx := context.Background()
+			workerServer.Start(ctx, app.Worker)
+		}()
 	}
 
 	<-shutdown
@@ -115,12 +118,20 @@ func (app *App) Run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), app.ShutdownTimeout)
 	defer cancel()
 
-	if err := webAppServer.Shutdown(shutdownCtx); err != nil {
-		log.Fatal().Err(err).Msg("main server shutdown failed")
-	}
-
 	if err := healthCheckServer.Shutdown(shutdownCtx); err != nil {
 		log.Fatal().Err(err).Msg("health check server shutdown failed")
+	}
+
+	if app.WebApp != nil && webAppServer != nil {
+		if err := webAppServer.Shutdown(shutdownCtx); err != nil {
+			log.Fatal().Err(err).Msg("main server shutdown failed")
+		}
+	}
+
+	if app.Worker != nil && workerServer != nil {
+		if err := workerServer.Shutdown(shutdownCtx); err != nil {
+			log.Fatal().Err(err).Msg("worker shutdown failed")
+		}
 	}
 
 	log.Info().Msg("shutdown complete")

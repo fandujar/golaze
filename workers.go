@@ -88,7 +88,6 @@ func (w *WorkerServer) Start(ctx context.Context, worker *Worker) {
 		for {
 			select {
 			case task := <-w.taskQueue.enqueue:
-				log.Info().Msgf("task %s added to queue", task.Name)
 				w.taskQueue.dequeue <- task
 			case task := <-w.taskQueue.dequeue:
 				go task.Run(context.Background(), w.state)
@@ -100,11 +99,6 @@ func (w *WorkerServer) Start(ctx context.Context, worker *Worker) {
 
 	<-w.shutdown
 	log.Info().Msg("worker server shutting down")
-}
-
-// WaitShutdown waits for the worker to finish
-func (w *WorkerServer) WaitShutdown() {
-	<-w.shutdown
 }
 
 // Stop stops the worker

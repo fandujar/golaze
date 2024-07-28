@@ -8,8 +8,13 @@ import (
 )
 
 func main() {
-	worker := golaze.NewWorker(
-		&golaze.WorkerConfig{},
+	app := golaze.NewApp(
+		&golaze.AppConfig{
+			Name: "Worker Continously Run Task",
+			Worker: golaze.NewWorker(
+				&golaze.WorkerConfig{},
+			),
+		},
 	)
 
 	task := golaze.NewTask(
@@ -30,9 +35,6 @@ func main() {
 			},
 		})
 
-	worker.AddTask(task)
-	go worker.Start()
-
-	// wait for the worker to finish
-	worker.WaitShutdown()
+	app.Worker.Tasks = append(app.Worker.Tasks, task)
+	app.Run()
 }

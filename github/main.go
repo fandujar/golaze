@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	g "github.com/google/go-github/v60/github"
+	g "github.com/google/go-github/v63/github"
 )
 
 type GitHubClientConfig struct {

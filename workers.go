@@ -62,18 +62,7 @@ func NewWorkerServer() *WorkerServer {
 
 // AddTask adds a task to the worker
 func (w *WorkerServer) AddTask(task *Task) error {
-	// w.lock.Lock()
-	// defer w.lock.Unlock()
-
 	w.taskQueue.enqueue <- *task
-
-	return nil
-}
-
-// RemoveTask removes a task from the worker
-func (w *WorkerServer) RemoveTask(task *Task) error {
-	// w.lock.Lock()
-	// defer w.lock.Unlock()
 
 	return nil
 }

@@ -84,6 +84,8 @@ func (w *WorkerServer) Start(ctx context.Context, worker *Worker) {
 		w.AddTask(task)
 	}
 
+	// TODO: handle retries and repeat
+
 	go func() {
 		for {
 			select {

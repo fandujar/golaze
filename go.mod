@@ -6,7 +6,6 @@ require (
 	cloud.google.com/go/pubsub v1.40.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/google/go-github/v63 v63.0.0
-	github.com/google/go-github/v63 v63.0.0
 	github.com/rs/zerolog v1.33.0
 )
 
@@ -14,7 +13,6 @@ require (
 	cloud.google.com/go v0.115.0 // indirect
 	cloud.google.com/go/auth v0.6.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
-	cloud.google.com/go/compute v1.27.0 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.8 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -43,7 +41,6 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/api v0.186.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240617180043-68d350f18fd4 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240617180043-68d350f18fd4 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240617180043-68d350f18fd4 // indirect

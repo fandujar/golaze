@@ -24,3 +24,9 @@ go.work
 examples/web_app/web_app
 examples/worker_run_once_task/worker_run_once_task
 examples/worker_run_continously_task/worker_run_continously_task
+examples/worker_run_retry_task/worker_run_retry_task
+examples/web_app_create_task/web_app_create_task
+
+
+# Ignore all .DS_Store files
+.DS_Store

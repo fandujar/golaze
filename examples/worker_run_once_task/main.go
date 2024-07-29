@@ -8,8 +8,13 @@ import (
 )
 
 func main() {
-	worker := golaze.NewWorker(
-		&golaze.WorkerConfig{},
+	app := golaze.NewApp(
+		&golaze.AppConfig{
+			Name: "Worker Run Once Task",
+			Worker: golaze.NewWorker(
+				&golaze.WorkerConfig{},
+			),
+		},
 	)
 
 	task := golaze.NewTask(
@@ -63,20 +68,9 @@ func main() {
 			},
 		})
 
-	worker.AddTask(task)
-	go worker.Start()
+	app.Worker.Tasks = append(app.Worker.Tasks, task)
+	app.Worker.Tasks = append(app.Worker.Tasks, task2)
+	app.Worker.Tasks = append(app.Worker.Tasks, task3)
 
-	err := worker.AddTask(task2)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = worker.AddTask(task3)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	// wait for the worker to finish
-	<-worker.Shutdown
-	fmt.Println("worker finished")
+	app.Run()
 }

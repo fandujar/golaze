@@ -55,19 +55,14 @@ func NewTask(config *TaskConfig) *Task {
 		config.RepeatDelay = 1 * time.Second
 	}
 
-	if config.Repeat == 0 {
-		config.Repeat = 1
-	}
-
 	return &Task{
 		config,
 	}
 }
 
 func (t *Task) Run(ctx context.Context, state *State) {
+	taskError := make(chan error)
 	go func() {
-		taskError := make(chan error)
-
 		go func() {
 			t.lock.Lock()
 			t.RunHistory = append(t.RunHistory, time.Now())
@@ -95,4 +90,26 @@ func (t *Task) Run(ctx context.Context, state *State) {
 
 		t.Done <- true
 	}()
+
+	<-t.Done
+	if taskError != nil && t.MaxRetries > 0 {
+		t.MaxRetries--
+		time.Sleep(t.RetryInterval)
+		t.Run(ctx, state)
+	}
+
+	if t.Repeat > 0 {
+		t.Repeat--
+		time.Sleep(t.RepeatDelay)
+		t.Run(ctx, state)
+	}
+
+	if t.Repeat == 0 {
+		close(t.Done)
+	}
+
+	if t.Repeat == -1 {
+		time.Sleep(t.RepeatDelay)
+		t.Run(ctx, state)
+	}
 }

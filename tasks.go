@@ -55,10 +55,6 @@ func NewTask(config *TaskConfig) *Task {
 		config.RepeatDelay = 1 * time.Second
 	}
 
-	if config.Repeat == 0 {
-		config.Repeat = 1
-	}
-
 	return &Task{
 		config,
 	}

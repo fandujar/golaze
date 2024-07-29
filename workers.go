@@ -9,6 +9,7 @@ import (
 
 type WorkerConfig struct {
 	Tasks           []*Task
+	EventBus        *EventBus
 	ConcurrentTasks int
 }
 
@@ -21,6 +22,17 @@ type WorkerServer struct {
 	state     *State
 	lock      sync.Mutex
 	shutdown  chan bool
+}
+
+type TaskEventHandler struct {
+	WorkerServer *WorkerServer
+}
+
+func (h *TaskEventHandler) Handle(event *Event) error {
+	log.Info().Msgf("event received: %v", event.Data)
+	task := event.Data.(*Task)
+	h.WorkerServer.AddTask(task)
+	return nil
 }
 
 // NewWorker creates a new worker
@@ -73,6 +85,13 @@ func (w *WorkerServer) Start(ctx context.Context, worker *Worker) {
 		w.AddTask(task)
 	}
 
+	if worker.EventBus != nil {
+		taskEventHandler := &TaskEventHandler{
+			WorkerServer: w,
+		}
+		worker.EventBus.Subscribe("task", taskEventHandler)
+	}
+
 	go func() {
 		for {
 			select {
@@ -92,9 +111,6 @@ func (w *WorkerServer) Start(ctx context.Context, worker *Worker) {
 
 // Stop stops the worker
 func (w *WorkerServer) Shutdown(ctx context.Context) error {
-	close(w.taskQueue.enqueue)
-	close(w.taskQueue.dequeue)
-
 	w.shutdown <- true
 	return nil
 }

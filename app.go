@@ -19,6 +19,7 @@ type AppConfig struct {
 	HealthCheck     *HealthCheck
 	WebApp          *WebApp
 	Worker          *Worker
+	EventBus        *EventBus
 	ShutdownTimeout time.Duration
 }
 
@@ -44,6 +45,10 @@ func NewApp(config *AppConfig) *App {
 	if config.ShutdownTimeout == 0 {
 		config.ShutdownTimeout = 10 * time.Second
 	}
+
+	config.EventBus = NewEventBus(
+		&EventBusConfig{},
+	)
 
 	return &App{
 		config,

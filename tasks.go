@@ -104,10 +104,6 @@ func (t *Task) Run(ctx context.Context, state *State) {
 		t.Run(ctx, state)
 	}
 
-	if t.Repeat == 0 {
-		close(t.Done)
-	}
-
 	if t.Repeat == -1 {
 		time.Sleep(t.RepeatDelay)
 		t.Run(ctx, state)

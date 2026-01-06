@@ -1,11 +1,14 @@
 module github.com/fandujar/golaze
 
-go 1.22.1
+go 1.24.0
+
+toolchain go1.24.11
 
 require (
 	cloud.google.com/go/pubsub v1.40.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/google/go-github/v63 v63.0.0
+	github.com/google/go-github/v81 v81.0.0
 	github.com/rs/zerolog v1.33.0
 )
 

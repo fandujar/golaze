@@ -1,11 +1,12 @@
 module github.com/fandujar/golaze
 
-go 1.22.1
+go 1.25.0
 
 require (
 	cloud.google.com/go/pubsub v1.40.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/google/go-github/v63 v63.0.0
+	github.com/google/go-github/v90 v90.0.0
 	github.com/rs/zerolog v1.33.0
 )
 
@@ -20,7 +21,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
